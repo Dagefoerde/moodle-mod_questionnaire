@@ -231,6 +231,7 @@ $string['gradesdeleted'] = 'Questionnaire grades deleted';
 $string['headingtext'] = 'Heading text';
 $string['horizontal'] = 'Horizontal';
 $string['id'] = 'ID';
+$string['includerankaverages'] = 'Include rank question averages';
 $string['includechoicecodes'] = 'Include choice codes';
 $string['includechoicetext'] = 'Include choice text';
 $string['incorrectcourseid'] = 'Course ID is incorrect';

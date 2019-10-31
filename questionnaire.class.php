@@ -2930,7 +2930,7 @@ class questionnaire {
     /* {{{ proto array survey_generate_csv(int survey_id)
     Exports the results of a survey to an array.
     */
-    public function generate_csv($rid='', $userid='', $choicecodes=1, $choicetext=0, $currentgroupid) {
+    public function generate_csv($rid='', $userid='', $choicecodes=1, $choicetext=0, $currentgroupid, $rankaverages=0) {
         global $DB;
 
         raise_memory_limit('1G');
@@ -3110,6 +3110,9 @@ class questionnaire {
                                 }
                                 $col = $choice->name.'->'.$modality;
                                 $columns[][$qpos] = $col;
+                                if ($rankaverages) {
+                                    $columns[][$qpos] = $col . '::average';
+                                }
                                 $questionidcols[][$qpos] = $qid.'_'.$choice->cid;
                                 array_push($types, $idtocsvmap[$type]);
                             }
@@ -3159,10 +3162,26 @@ class questionnaire {
             }
             $questionsbyposition[$p] = $this->questions[$questionid];
             $p++;
+            if ($rankaverages) {
+                if ($this->questions[$questionid]->type_id == QUESRATE) {
+                    $p++;
+                }
+            }
         }
 
         $formatoptions = new stdClass();
         $formatoptions->filter = false;  // To prevent any filtering in CSV output.
+
+        if ($rankaverages) {
+            $averages = [];
+            $rids = [];
+            $allresponsesrs2 = $this->get_survey_all_responses($rid, $userid, $currentgroupid);
+            foreach ($allresponsesrs2 as $responserow) {
+                if (!isset($rids[$responserow->rid])) {
+                    $rids[$responserow->rid] = $responserow->rid;
+                }
+            }
+        }
 
         // Get textual versions of responses, add them to output at the correct col position.
         $prevresprow = false; // Previous response row.
@@ -3172,6 +3191,16 @@ class questionnaire {
             $qid = $responserow->question_id;
             $question = $this->questions[$qid];
             $qtype = intval($question->type_id);
+            if ($rankaverages) {
+                if ($qtype === QUESRATE) {
+                    if (empty($averages[$qid])) {
+                        $results = $this->questions[$qid]->response->get_results($rids);
+                        foreach ($results as $qresult) {
+                            $averages[$qid][$qresult->id] = $qresult->average;
+                        }
+                    }
+                }
+            }
             $questionobj = $this->questions[$qid];
 
             if ($prevresprow !== false && $prevresprow->rid !== $rid) {
@@ -3185,6 +3214,9 @@ class questionnaire {
                 $position = $questionpositions[$key];
                 if ($qtype === QUESRATE) {
                     $choicetxt = $responserow->rank + 1;
+                    if ($rankaverages) {
+                        $row[$position + 1] = $averages[$qid][$responserow->choice_id];
+                    }
                 } else {
                     $content = $choicesbyqid[$qid][$responserow->choice_id]->content;
                     if (preg_match('/^!other/', $content)) {
